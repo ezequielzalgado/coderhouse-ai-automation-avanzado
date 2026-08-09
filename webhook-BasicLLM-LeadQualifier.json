@@ -1,0 +1,283 @@
+{
+  "name": "webhook-BasicLLM-LeadQualifier",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "recepcion-leads",
+        "options": {}
+      },
+      "name": "Webhook (Ingesta)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -992,
+        -16
+      ],
+      "id": "91c3e9c4-5835-44e3-87cf-eaf39d0b2253",
+      "webhookId": "6bcba7c5-6be5-49e2-8bab-170edca6a231"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.text }}",
+              "operation": "isEmpty"
+            }
+          ]
+        }
+      },
+      "name": "IF (Verificar Error)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        0
+      ],
+      "id": "f1374be8-62c5-4136-98f4-b4d06193d0ea"
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "lead_id",
+              "value": "={{ $node[\"Webhook (Ingesta)\"].json[\"body\"][\"lead_id\"] }}"
+            },
+            {
+              "name": "analysis",
+              "value": "ERROR DE SISTEMA - REQUIERE EVALUACIÓN MANUAL"
+            },
+            {
+              "name": "lead_score",
+              "value": "Pendiente"
+            },
+            {
+              "name": "error",
+              "value": "={{ $('Basic LLM Chain').item.json.error }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Fallback Emergencia",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        144,
+        -112
+      ],
+      "id": "69b2dde8-c6a3-4800-8bfe-ba7eee99ca5e"
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "lead_id",
+              "value": "={{ JSON.parse($json.text).lead_id }}"
+            },
+            {
+              "name": "analysis",
+              "value": "={{ JSON.parse($json.text).analysis }}"
+            },
+            {
+              "name": "lead_score",
+              "value": "={{ JSON.parse($json.text).lead_score }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Parsear Groq JSON",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        144,
+        96
+      ],
+      "id": "a24cefb9-368d-4f42-a187-0be0cf03e3ca"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Datos del lead:\n- ID: {{$node[\"Webhook (Ingesta)\"].json[\"body\"][\"lead_id\"]}}\n- Necesidad: {{$node[\"Webhook (Ingesta)\"].json[\"body\"][\"necesidad\"]}}\n- Presupuesto y Empresa: {{$node[\"Webhook (Ingesta)\"].json[\"body\"][\"datos_empresa\"]}}\n\nCriterios de calificación a seguir:\n{{$node[\"Simulador\"].json[\"criterios_recuperados\"]}}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Eres un asistente experto en calificación de leads B2B. Tu tarea es analizar la información del prospecto basándote estrictamente en los criterios proporcionados. Responde ÚNICAMENTE en formato JSON válido utilizando exactamente este esquema: \n\n{   \"lead_id\": \"string\",   \"analysis\": \"string\",   \n     \"next_steps\": [\"string\"],   \"lead_score\": \"Alto Medio Bajo\" }  \n\nNo incluyas saludos, introducciones, ni texto adicional fuera de la estructura JSON."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -464,
+        -16
+      ],
+      "id": "ab82b1d0-8857-4e44-8cfd-623d5d536fd0",
+      "name": "Basic LLM Chain",
+      "retryOnFail": false,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "maxTokensToSample": 500,
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -464,
+        192
+      ],
+      "id": "052f2c2e-f183-4578-a15c-1f2b08559728",
+      "name": "Groq Chat Model"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook (Ingesta)').item.json.body.Mail }}",
+        "subject": "=Lead Calificado - Score: {{$json[\"lead_score\"]}}",
+        "message": "=🔔 Nuevo Lead Evaluado:\nLead ID: {{$json[\"lead_id\"]}} \nScore de Calificación: {{$json[\"lead_score\"]}} \nAnálisis: {{$json[\"analysis\"]}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        432,
+        16
+      ],
+      "id": "1ac6a715-5f3e-41b7-bfd0-c62084278f75",
+      "name": "Send a message",
+      "webhookId": "28d1075e-45a0-4c62-b2c6-03741d9bd0f6"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "criterios_recuperados",
+              "value": "Leads con presupuesto definido que mencionan urgencia o necesidad de implementación inmediata se califican como 'Alto'. Leads buscando solo información o sin presupuesto claro son 'Bajo'. El resto se califica como 'Medio'."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Simulador",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        -16
+      ],
+      "id": "f1b1ffe8-5ed2-45c8-9e31-7c278d431171"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook (Ingesta)": {
+      "main": [
+        [
+          {
+            "node": "Simulador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF (Verificar Error)": {
+      "main": [
+        [
+          {
+            "node": "Fallback Emergencia",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parsear Groq JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallback Emergencia": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parsear Groq JSON": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "IF (Verificar Error)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simulador": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "e96a632b-1843-4b56-9c6f-c012176a45b8",
+  "meta": {
+    "instanceId": "6843923c212cb04c2babe24035f1e10ae59c9f01f6e16e8e42a1fd5a074cae6a"
+  },
+  "nodeGroups": [],
+  "id": "SkV433pAL5fCuIa4",
+  "tags": []
+}
