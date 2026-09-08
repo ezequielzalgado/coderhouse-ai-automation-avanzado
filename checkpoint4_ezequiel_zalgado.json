@@ -1,0 +1,1622 @@
+{
+  "name": "Manager_Orquestador copy 2",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "193da2c1-c28e-4509-bec9-280507f32450",
+      "name": "Iniciar Prueba",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "session_id",
+              "name": "session_id",
+              "value": "={{ $json.sender?.emailAddress?.address || $json.from?.emailAddress?.address || 'USER-1042' }}",
+              "type": "string"
+            },
+            {
+              "id": "user_name",
+              "name": "user_name",
+              "value": "={{ $json.sender?.emailAddress?.name || $json.from?.emailAddress?.name || 'Ezequiel Zalgado' }}",
+              "type": "string"
+            },
+            {
+              "id": "consulta",
+              "name": "consulta",
+              "value": "={{ $json.body?.content || $json.bodyPreview || 'Hola, sigo con el problema del router que parpadea la luz roja luego del reinicio' }}",
+              "type": "string"
+            },
+            {
+              "id": "asunto",
+              "name": "asunto",
+              "value": "={{ $json.subject || 'Consulta manual de soporte' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "619c7da1-774d-49db-9852-6eaafeb3fe40",
+      "name": "Consulta de Entrada",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        224,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.consulta }}",
+        "options": {
+          "systemMessage": "=CONFIGURACIÓN DE IDENTIDAD Y MEMORIA DE LARGO PLAZO\n\nEl usuario se llama {{ $json.user_name }}. El contexto de vuestra última charla es: {{ $json.last_summary }}.\n[INICIO DE CONTEXTO COMPARTIDO]\nIdentificador de Sesión: {{ $json.session_id }}\nEstado de la última solicitud: {{ $json.status }}\n[FIN DEL CONTEXTO COMPARTIDO]\n\nEres un clasificador de consultas para una empresa. Clasifica la consulta del usuario de forma estricta en una de estas 3 opciones:\n1. FACTURACION: Si trata sobre cobros, pagos, saldos, estados de cuenta, precios o facturas.\n2. SOPORTE: Si trata sobre fallas técnicas, conexión a internet, router, errores o configuración.\n3. OTRO: Si trata sobre cualquier otro tema (RRHH, ventas, temas no relacionados o confusos).\n\nResponde ÚNICAMENTE con una sola palabra en mayúsculas: FACTURACION, SOPORTE u OTRO."
+        }
+      },
+      "id": "9f9a16d8-cf21-4d1b-ad4b-5e67b6553b4e",
+      "name": "Clasificador de Intencion",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1120,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "model": "qwen2.5:7b",
+        "options": {}
+      },
+      "id": "4a14f647-354d-415f-b6d4-70b6c45b0458",
+      "name": "Ollama Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        448
+      ],
+      "credentials": {
+        "ollamaApi": {
+          "id": "WeMf7EeMKKeCK3JT",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output }}",
+                    "operator": {
+                      "operation": "contains",
+                      "type": "string"
+                    },
+                    "rightValue": "FACTURACION",
+                    "id": "227a7fab-ee3c-4cce-932c-7a9b69fc58c9"
+                  }
+                ],
+                "combinator": "and",
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                }
+              },
+              "renameOutput": true,
+              "outputKey": "Facturacion"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "operator": {
+                      "operation": "contains",
+                      "type": "string"
+                    },
+                    "leftValue": "={{ $json.output }}",
+                    "rightValue": "SOPORTE",
+                    "id": "0f9028ee-c5cf-4ac7-b582-d0d23d52f29d"
+                  }
+                ],
+                "combinator": "and",
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                }
+              },
+              "renameOutput": true,
+              "outputKey": "Soporte"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "ignoreCase": true,
+          "renameFallbackOutput": "Derivacion_Humana_Chatwoot"
+        }
+      },
+      "id": "c1f139a1-8d43-452f-a85c-7fb2e5cc50fe",
+      "name": "Enrutador por Categoria",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1472,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "consulta",
+              "name": "consulta",
+              "value": "={{ $('Consulta de Entrada').item.json.consulta }}",
+              "type": "string"
+            },
+            {
+              "id": "categoria",
+              "name": "categoria",
+              "value": "FACTURACION",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "adb60eb2-97d6-49d8-9e07-6f932de66af3",
+      "name": "Limpiar Datos Facturacion",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1696,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "M2ppqXkkoahhh5De"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "4037f5e6-4e69-4b71-aaab-93acc5e90ab7",
+      "name": "Llamar Worker Facturacion",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1920,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "consulta",
+              "name": "consulta",
+              "value": "={{ $('Consulta de Entrada').item.json.consulta }}",
+              "type": "string"
+            },
+            {
+              "id": "categoria",
+              "name": "categoria",
+              "value": "SOPORTE",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "630c6be2-bfc8-4b51-b410-cd085f791bc5",
+      "name": "Limpiar Datos Soporte",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1696,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1o0YhANJehVFJFzU"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "7fa5c89a-0c94-4a06-8bb0-a0d2c7af7e0f",
+      "name": "Llamar Worker Soporte",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1920,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "estado",
+              "name": "estado",
+              "value": "derivado_humano",
+              "type": "string"
+            },
+            {
+              "type": "string",
+              "name": "especialista",
+              "value": "operador_chatwoot",
+              "id": "especialista"
+            },
+            {
+              "id": "motivo",
+              "name": "motivo",
+              "value": "Consulta fuera de taxonomia o no concluyente",
+              "type": "string"
+            },
+            {
+              "id": "respuesta",
+              "value": "Su consulta requiere asistencia personalizada. Ha sido transferida a la cola de atención con un operador en Chatwoot.",
+              "name": "respuesta",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1edea251-a444-4ef1-97ee-6d96e10da57e",
+      "name": "Derivacion a Operador Chatwoot",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1696,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://chat.organizacioncentro.com.ar/api/v1/accounts/1/conversations/1042/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "api_access_token",
+              "value": "cw_live_9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"content\": \"⚠️ Derivación automática desde n8n: El cliente requiere asistencia humana personalizada.\",\n  \"message_type\": \"outgoing\",\n  \"private\": true\n}",
+        "options": {
+          "response": {}
+        }
+      },
+      "id": "bc41523b-af29-4d11-a066-b50c82f2f69f",
+      "name": "API Chatwoot Reasignar Chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1920,
+        400
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "sRzQE0wKTYHMACCU"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "session_id",
+              "keyValue": "={{ $('Consulta de Entrada').item.json.session_id }}"
+            }
+          ]
+        }
+      },
+      "id": "c5b5a3c0-9625-4900-8e4e-8cba2f81a83b",
+      "name": "Buscar Historial en Data Table",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        448,
+        208
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "operator": {
+                "operation": "notEmpty",
+                "type": "string"
+              },
+              "leftValue": "={{ $json.session_id }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "734f1e7b-70cf-42e4-b453-647d6bd5a2e5",
+      "name": "Existe Historial Previo",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        672,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "type": "string",
+              "name": "session_id",
+              "value": "={{ $('Consulta de Entrada').item.json.session_id }}",
+              "id": "session_id"
+            },
+            {
+              "type": "string",
+              "name": "user_name",
+              "value": "={{ $('Consulta de Entrada').item.json.user_name || 'Ezequiel Zalgado' }}",
+              "id": "user_name"
+            },
+            {
+              "type": "string",
+              "name": "last_summary",
+              "value": "={{ $json.resumen_consolidado }}",
+              "id": "last_summary"
+            },
+            {
+              "type": "string",
+              "name": "status",
+              "value": "={{ $json.estado_caso }}",
+              "id": "status"
+            },
+            {
+              "type": "number",
+              "name": "cantidad_mensajes",
+              "value": "={{ (Number($json.contador_mensajes) || 0) + 1 }}",
+              "id": "cantidad_mensajes"
+            },
+            {
+              "type": "string",
+              "name": "consulta",
+              "value": "={{ $('Consulta de Entrada').item.json.consulta }}",
+              "id": "consulta"
+            },
+            {
+              "type": "string",
+              "name": "tipo_usuario",
+              "value": "recurrente",
+              "id": "tipo_usuario"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d1e83cb8-a63c-4245-ac1e-c2c1a1b0f4f7",
+      "name": "Contexto Usuario Recurrente",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        896,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "type": "string",
+              "name": "session_id",
+              "value": "={{ $('Consulta de Entrada').item.json.session_id }}",
+              "id": "session_id"
+            },
+            {
+              "type": "string",
+              "name": "user_name",
+              "value": "={{ $('Consulta de Entrada').item.json.user_name || 'Cliente Nuevo' }}",
+              "id": "user_name"
+            },
+            {
+              "type": "string",
+              "name": "last_summary",
+              "value": "Primer contacto del cliente. Sin historial previo registrado.",
+              "id": "last_summary"
+            },
+            {
+              "type": "string",
+              "name": "status",
+              "value": "Nuevo",
+              "id": "status"
+            },
+            {
+              "type": "number",
+              "name": "cantidad_mensajes",
+              "value": 1,
+              "id": "cantidad_mensajes"
+            },
+            {
+              "type": "string",
+              "name": "consulta",
+              "value": "={{ $('Consulta de Entrada').item.json.consulta }}",
+              "id": "consulta"
+            },
+            {
+              "type": "string",
+              "name": "tipo_usuario",
+              "value": "nuevo",
+              "id": "tipo_usuario"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0b38c524-b49f-41ac-8366-1250b0df5a99",
+      "name": "Contexto Usuario Nuevo",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        896,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "model": "qwen2.5:7b",
+        "options": {}
+      },
+      "id": "22d92cc2-4076-45eb-82c1-126d07dd4ea8",
+      "name": "Ollama Summarizer Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        2448,
+        320
+      ],
+      "credentials": {
+        "ollamaApi": {
+          "id": "WeMf7EeMKKeCK3JT",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Consulta del usuario: {{ $('Consulta de Entrada').item.json.consulta }}\nRespuesta: {{ $json.respuesta || $('Derivacion a Operador Chatwoot').item.json.respuesta || 'Atención en proceso' }}",
+        "options": {
+          "systemMessage": "Eres un asistente especializado en análisis y resumen de conversaciones de atención al cliente. Tu único objetivo es generar un resumen estructurado y objetivo de la interacción entre el usuario y la empresa, independientemente del área tratada (facturación, soporte técnico o consultas generales).\n\nResponde ÚNICAMENTE con un JSON válido que tenga esta estructura exacta:\n{\n  \"asunto_principal\": \"string\",\n  \"puntos_clave\": [\"string\"],\n  \"accion_requerida\": \"string\"\n}\nNo incluyas explicaciones ni etiquetas markdown."
+        }
+      },
+      "id": "bb04ffce-8edf-40ed-a643-626bc4ffa5ca",
+      "name": "Generador de Resumen Consolidado",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        2368,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "mode": "id",
+          "__rl": true,
+          "value": "sRzQE0wKTYHMACCU"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "session_id",
+              "keyValue": "={{ $('Consulta de Entrada').item.json.session_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "schema": [
+            {
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "required": false,
+              "display": true,
+              "id": "session_id",
+              "displayName": "session_id",
+              "defaultMatch": false
+            },
+            {
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "display": true,
+              "displayName": "fecha_actualizacion",
+              "id": "fecha_actualizacion",
+              "required": false,
+              "defaultMatch": false
+            },
+            {
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "required": false,
+              "id": "resumen_consolidado",
+              "displayName": "resumen_consolidado",
+              "display": true
+            },
+            {
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "required": false,
+              "defaultMatch": false,
+              "id": "estado_caso",
+              "displayName": "estado_caso",
+              "display": true
+            },
+            {
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "required": false,
+              "id": "datos_clave",
+              "displayName": "datos_clave",
+              "display": true
+            },
+            {
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "displayName": "contador_mensajes",
+              "defaultMatch": false,
+              "id": "contador_mensajes",
+              "required": false,
+              "display": true
+            }
+          ],
+          "value": {
+            "datos_clave": "={{ $json.output }}",
+            "session_id": "={{ $('Consulta de Entrada').item.json.session_id }}",
+            "estado_caso": "Actualizado",
+            "fecha_actualizacion": "={{ $now.toISO() }}",
+            "resumen_consolidado": "={{ $json.output }}",
+            "contador_mensajes": 1
+          },
+          "matchingColumns": [
+            "session_id"
+          ]
+        },
+        "options": {}
+      },
+      "id": "fc9d272b-f453-49ca-b119-aef42496e04e",
+      "name": "Guardar Memoria con Resumen",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2720,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "type": "string",
+              "name": "fecha_hora",
+              "value": "={{ $now.toISO() }}",
+              "id": "timestamp"
+            },
+            {
+              "type": "string",
+              "name": "session_id",
+              "value": "={{ $('Consulta de Entrada').item.json.session_id }}",
+              "id": "session_id"
+            },
+            {
+              "type": "string",
+              "name": "user_name",
+              "value": "={{ $('Consulta de Entrada').item.json.user_name || 'Ezequiel Zalgado' }}",
+              "id": "user_name"
+            },
+            {
+              "type": "number",
+              "name": "contador_actual",
+              "value": "={{ $json.contador_mensajes }}",
+              "id": "contador_actual"
+            },
+            {
+              "type": "string",
+              "name": "resumen_guardado",
+              "value": "={{ $json.resumen_consolidado }}",
+              "id": "resumen_guardado"
+            },
+            {
+              "type": "string",
+              "name": "estado_persistencia",
+              "value": "exito_guardado",
+              "id": "estado_persistencia"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f12850bc-b1bc-4271-87be-83b77f88a77c",
+      "name": "Log Auditoria Consolidado",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2944,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "rightValue": 5,
+              "leftValue": "={{ $('Contexto Usuario Recurrente').item?.json?.cantidad_mensajes || $('Contexto Usuario Nuevo').item?.json?.cantidad_mensajes || 1 }}"
+            }
+          ],
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0da42cd2-62d3-45c4-a005-97fe078db3c4",
+      "name": "Supera 5 Mensajes",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2144,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "value": "sRzQE0wKTYHMACCU",
+          "__rl": true,
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "session_id",
+              "keyValue": "={{ $('Consulta de Entrada').item.json.session_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "schema": [
+            {
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "required": false,
+              "display": true,
+              "id": "session_id",
+              "displayName": "session_id",
+              "defaultMatch": false
+            },
+            {
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "displayName": "fecha_actualizacion",
+              "id": "fecha_actualizacion",
+              "required": false,
+              "display": true
+            },
+            {
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "required": false,
+              "display": true,
+              "id": "resumen_consolidado",
+              "displayName": "resumen_consolidado",
+              "defaultMatch": false
+            },
+            {
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "required": false,
+              "defaultMatch": false,
+              "id": "estado_caso",
+              "displayName": "estado_caso",
+              "display": true
+            },
+            {
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "required": false,
+              "defaultMatch": false,
+              "id": "datos_clave",
+              "displayName": "datos_clave",
+              "display": true
+            },
+            {
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "display": true,
+              "displayName": "contador_mensajes",
+              "id": "contador_mensajes",
+              "required": false,
+              "defaultMatch": false
+            }
+          ],
+          "value": {
+            "session_id": "={{ $('Consulta de Entrada').item.json.session_id }}",
+            "datos_clave": "={{ $('Contexto Usuario Recurrente').item?.json?.datos_clave || '{}' }}",
+            "contador_mensajes": "={{ $('Contexto Usuario Recurrente').item?.json?.cantidad_mensajes || $('Contexto Usuario Nuevo').item?.json?.cantidad_mensajes || 1 }}",
+            "estado_caso": "En Curso",
+            "resumen_consolidado": "={{ $('Contexto Usuario Recurrente').item?.json?.last_summary || $('Contexto Usuario Nuevo').item?.json?.last_summary || 'Interacción registrada' }}",
+            "fecha_actualizacion": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [
+            "session_id"
+          ],
+          "mappingMode": "defineBelow"
+        },
+        "options": {}
+      },
+      "id": "86f91226-65f1-48e2-bb42-f124c746dd45",
+      "name": "Guardar Memoria Incremental",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2720,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "id": "6890e503-bdf6-4643-87e3-6b1c34b9b1b9",
+      "name": "Revisar Outlook cada 5 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -224,
+        -192
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "folderMessage",
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "AAMkADgwMGM2Y2IzLTRjY2UtNGFkZi1iNjNjLTA4NWZkMGYwM2Y4ZAAuAAAAAAC-fKgm3MVuTKGXipR-Y51IAQBnqCXloYSESr0nGNthtMAUAAAAAAEMAAA=",
+          "cachedResultName": "Bandeja de entrada"
+        },
+        "limit": 20,
+        "output": "fields",
+        "fields": [
+          "body",
+          "bodyPreview",
+          "from",
+          "sender",
+          "subject",
+          "receivedDateTime"
+        ],
+        "filtersUI": {
+          "values": {
+            "filters": {
+              "readStatus": "unread"
+            }
+          }
+        },
+        "options": {
+          "downloadAttachments": false
+        }
+      },
+      "id": "2f34de50-2577-4285-9b1c-cc865373249a",
+      "name": "Leer correos nuevos de Outlook",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -192
+      ],
+      "webhookId": "8aec261c-73fe-4a75-9056-0b54cc8a5329",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "22IhgDBcJFJqnkd5",
+          "name": "Microsoft Outlook account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "or",
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.subject || '' }}",
+              "rightValue": "auto-reply",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "leftValue": "={{ $json.subject || '' }}",
+              "rightValue": "out of office",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "leftValue": "={{ $json.subject || '' }}",
+              "rightValue": "undeliverable",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "leftValue": "={{ $json.sender?.emailAddress?.address || $json.from?.emailAddress?.address || '' }}",
+              "rightValue": "no-reply@",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ]
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "id": "8ce7de66-3070-4f24-af59-4bb27106ac22",
+      "name": "¿Es respuesta automática?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        224,
+        -192
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "crm_email",
+              "name": "email",
+              "value": "={{ $('Consulta de Entrada').item.json.session_id }}",
+              "type": "string"
+            },
+            {
+              "id": "crm_nombre",
+              "name": "nombre",
+              "value": "={{ $('Consulta de Entrada').item.json.user_name }}",
+              "type": "string"
+            },
+            {
+              "id": "crm_asunto",
+              "name": "asunto",
+              "value": "={{ $('Consulta de Entrada').item.json.asunto || 'Consulta de soporte' }}",
+              "type": "string"
+            },
+            {
+              "id": "crm_respuesta",
+              "name": "body_text",
+              "value": "={{ $json.respuesta }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bda95a5e-ec53-422f-9630-7d73b90b3ac9",
+      "name": "Limpiar payload para CRM",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2144,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "LlRTByZutEdHNPoN",
+          "cachedResultName": "crm_contactos_soporte"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "email",
+              "keyValue": "={{ $json.email }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "45b8d701-c75d-426e-b763-95b2701963f1",
+      "name": "Buscar contacto en CRM",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2368,
+        560
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.email || '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ]
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "id": "9afecf7e-59d1-4b1a-b501-f1d0eefc7602",
+      "name": "¿Contacto existente?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2592,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "LlRTByZutEdHNPoN",
+          "cachedResultName": "crm_contactos_soporte"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "email": "={{ $('Limpiar payload para CRM').item.json.email }}",
+            "nombre": "={{ $('Limpiar payload para CRM').item.json.nombre }}",
+            "ultimo_asunto": "={{ $('Limpiar payload para CRM').item.json.asunto }}",
+            "estado": "nuevo",
+            "fecha_actualizacion": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nombre",
+              "displayName": "nombre",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ultimo_asunto",
+              "displayName": "ultimo_asunto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "estado",
+              "displayName": "estado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fecha_actualizacion",
+              "displayName": "fecha_actualizacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "date",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "52add4f5-d2cf-455d-88c6-aac2e5e1c858",
+      "name": "Crear contacto CRM",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2816,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "={{ 'Re: ' + $('Limpiar payload para CRM').item.json.asunto }}",
+        "bodyContent": "={{ $('Limpiar payload para CRM').item.json.body_text }}",
+        "additionalFields": {
+          "importance": "Normal",
+          "bodyContentType": "Text",
+          "toRecipients": "={{ $('Limpiar payload para CRM').item.json.email }}"
+        }
+      },
+      "id": "739635c7-5a11-4a64-86f6-1460ee91cfed",
+      "name": "Crear borrador Outlook (HITL)",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        3040,
+        560
+      ],
+      "webhookId": "c682acd0-e486-414a-8b14-e5e1fb041a0a",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "22IhgDBcJFJqnkd5",
+          "name": "Microsoft Outlook account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "teams_text",
+              "name": "mensaje_teams",
+              "value": "={{ 'Nuevo borrador creado para ' + $('Limpiar payload para CRM').item.json.email + ' | Asunto: ' + $('Limpiar payload para CRM').item.json.asunto }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "03c0a250-af17-4909-887b-1e6c284b8796",
+      "name": "Limpiar aviso para Teams",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        3264,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "channelMessage",
+        "teamId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "a1cdb9bc-cd4f-4cf3-86dd-4e952e86dd5d",
+          "cachedResultName": "Grupo Sistemas"
+        },
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "19:3TxO948JmfneNGQ2_0eNl6UfZnCkqXOQXkxdhWvHM6Q1@thread.tacv2",
+          "cachedResultName": "Tickets Nuevos"
+        },
+        "message": "={{ $json.mensaje_teams }}",
+        "options": {
+          "includeLinkToWorkflow": true
+        }
+      },
+      "id": "3ffac833-b1d0-48f7-afa2-66533069def8",
+      "name": "Avisar en Teams",
+      "type": "n8n-nodes-base.microsoftTeams",
+      "typeVersion": 2,
+      "position": [
+        3488,
+        560
+      ],
+      "webhookId": "4d7f2909-2bc6-4a6e-a9ea-b8bf7e4ccb0d",
+      "credentials": {
+        "microsoftTeamsOAuth2Api": {
+          "id": "n1V1h8UAQfeDcO8g",
+          "name": "Microsoft Teams account"
+        }
+      },
+      "disabled": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Iniciar Prueba": {
+      "main": [
+        [
+          {
+            "node": "Consulta de Entrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clasificador de Intencion": {
+      "main": [
+        [
+          {
+            "node": "Enrutador por Categoria",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Clasificador de Intencion",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enrutador por Categoria": {
+      "main": [
+        [
+          {
+            "node": "Limpiar Datos Facturacion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Limpiar Datos Soporte",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Derivacion a Operador Chatwoot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limpiar Datos Facturacion": {
+      "main": [
+        [
+          {
+            "node": "Llamar Worker Facturacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limpiar Datos Soporte": {
+      "main": [
+        [
+          {
+            "node": "Llamar Worker Soporte",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Derivacion a Operador Chatwoot": {
+      "main": [
+        [
+          {
+            "node": "API Chatwoot Reasignar Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consulta de Entrada": {
+      "main": [
+        [
+          {
+            "node": "Buscar Historial en Data Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Historial en Data Table": {
+      "main": [
+        [
+          {
+            "node": "Existe Historial Previo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Existe Historial Previo": {
+      "main": [
+        [
+          {
+            "node": "Contexto Usuario Recurrente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Contexto Usuario Nuevo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contexto Usuario Recurrente": {
+      "main": [
+        [
+          {
+            "node": "Clasificador de Intencion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contexto Usuario Nuevo": {
+      "main": [
+        [
+          {
+            "node": "Clasificador de Intencion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Summarizer Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Generador de Resumen Consolidado",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generador de Resumen Consolidado": {
+      "main": [
+        [
+          {
+            "node": "Guardar Memoria con Resumen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Llamar Worker Facturacion": {
+      "main": [
+        [
+          {
+            "node": "Supera 5 Mensajes",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Limpiar payload para CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Llamar Worker Soporte": {
+      "main": [
+        [
+          {
+            "node": "Supera 5 Mensajes",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Limpiar payload para CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API Chatwoot Reasignar Chat": {
+      "main": [
+        [
+          {
+            "node": "Supera 5 Mensajes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supera 5 Mensajes": {
+      "main": [
+        [
+          {
+            "node": "Generador de Resumen Consolidado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Guardar Memoria Incremental",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Memoria con Resumen": {
+      "main": [
+        [
+          {
+            "node": "Log Auditoria Consolidado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Memoria Incremental": {
+      "main": [
+        [
+          {
+            "node": "Log Auditoria Consolidado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Revisar Outlook cada 5 minutos": {
+      "main": [
+        [
+          {
+            "node": "Leer correos nuevos de Outlook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer correos nuevos de Outlook": {
+      "main": [
+        [
+          {
+            "node": "¿Es respuesta automática?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es respuesta automática?": {
+      "main": [
+        null,
+        [
+          {
+            "node": "Consulta de Entrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limpiar payload para CRM": {
+      "main": [
+        [
+          {
+            "node": "Buscar contacto en CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar contacto en CRM": {
+      "main": [
+        [
+          {
+            "node": "¿Contacto existente?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Contacto existente?": {
+      "main": [
+        [
+          {
+            "node": "Crear borrador Outlook (HITL)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Crear contacto CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear contacto CRM": {
+      "main": [
+        [
+          {
+            "node": "Crear borrador Outlook (HITL)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear borrador Outlook (HITL)": {
+      "main": [
+        [
+          {
+            "node": "Limpiar aviso para Teams",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limpiar aviso para Teams": {
+      "main": [
+        [
+          {
+            "node": "Avisar en Teams",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "a2564d66-35c0-46d4-8265-6328b2f1063a",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "instanceId": "ef274cc3630c6e52735a2d708e9c48005093b50662447e0063736a9538f5e7ab"
+  },
+  "nodeGroups": [],
+  "id": "VDGZoKV3DNb394GT",
+  "tags": []
+}
